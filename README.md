@@ -16,6 +16,11 @@ The test_install.pl script can be run in order to check whether the required dep
 
     bash </path/to/PseudoRA/>pseudoRA.sh -t
 
+Before PseudoRA on exon 2 of *SBDS* gene
+![enter image description here](https://github.com/ParkYJ217/pseudoRA/blob/master/demo/demo.png)
+After PseudoRA  on exon 2 of *SBDS* gene
+![enter image description here](https://github.com/ParkYJ217/pseudoRA/blob/master/demo/demo.correct.png)
+
 ## 4. Running scripts
 
 The command for running PseudoRA has the following syntax:
