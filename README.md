@@ -25,12 +25,15 @@ After PseudoRA  on exon 2 of *SBDS* gene
 
 The command for running PseudoRA has the following syntax:
 
-    bash </path/to/PseudoRA/>pseudoRA.sh -i <input BAM>
+    bash </path/to/PseudoRA/>utils/pseudoRA.sh -i <input BAM>
 
 >Arguments Mandatory parameters
 >
+>
 >-i <string>: Destination of original BAM file (REQUIRED)
+>
 >-r <string>: Reference FASTA (OPTIONAL) [Default:reference/chr7_b37_SBDS.fa]
+>
 >-b <string>: Region of interest BED (OPTIONAL)  [Default:reference/SBDS.bed]
 
 ## 5. Customization for other genes
