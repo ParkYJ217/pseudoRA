@@ -14,7 +14,11 @@ The test_install.pl script can be run in order to check whether the required dep
 
 ## 3. Testing PseudoRA (DEMO)
 
+You can test PseudoRA using following command
+
     bash </path/to/PseudoRA/>pseudoRA.sh -t
+
+This runs demo.bam in demo folder and output demo.correct.bam and demo.correct.hc.vcf. Visualization with IGV(Integrative Genomics Viewer) is followed.
 
 Before PseudoRA on exon 2 of *SBDS* gene
 ![enter image description here](https://github.com/ParkYJ217/pseudoRA/blob/master/demo/demo.png)
