@@ -7,3 +7,7 @@ sudo -H python3 -m pip install pysam pandas biopython
 
 ### Install third-party software
 sudo apt install bwa samtools  
+
+### Unzip reference
+sourcedir=$(dirname $0)
+gunzip ${sourcedir}/reference/*
