@@ -6,6 +6,8 @@
 ## 2. Installation
 Just download the latest release from the GitHub repository and uncompress the tarball in a suitable directory. The tarball includes the PseudoRA script as well as the third-party software redistributed with PseudoRA (see section 5). The INSTALL files contain detailed installation instructions, including all the external libraries required to make PseudoRA run in Ubuntu.
 
+    bash </path/to/PseudoRA/>INSTALL.sh
+    
 The test_install.pl script can be run in order to check whether the required dependencies are available in your environment.
 
     </path/to/PseudoRA/>utils/test_install.pl
@@ -18,7 +20,7 @@ The test_install.pl script can be run in order to check whether the required dep
 
 The command for running PseudoRA has the following syntax:
 
-    bash </path/to/PseudoRA/>utils/pseudoRA.sh -i <input BAM>
+    bash </path/to/PseudoRA/>pseudoRA.sh -i <input BAM>
 
 >Arguments Mandatory parameters
 >
@@ -36,14 +38,22 @@ The command for running PseudoRA has the following syntax:
 ## 6. License and third-party software
 
 PseudoRA is distributed under a GPL-3 license. Additionally, SqueezeMeta redistributes the following third-party software:
+
 [bwa](https://github.com/lh3/bwa)
+
 [gatk](https://gatk.broadinstitute.org/hc/en-us)
+
 [picard](https://broadinstitute.github.io/picard/)
+
 [samtools](http://www.htslib.org/)
 
 ## 7. Reference
 
 Acknowledgements
+
 Author of pipeline: Yu Jin Park (parkyj217@gmail.com)
+
 Principal Investigators: Saeam Shin and Seung-Tae Lee
+
 Institution: Yonsei University, College of Medicine, Department of Laboratory Medicine
+
