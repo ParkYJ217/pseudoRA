@@ -4,7 +4,7 @@
 **PseudoRA** aims to realign mismapped reads from the general short-read NGS BAM files due to highly-homologous sequences between gene-pseudogene pairs. Briefly, the software works in following steps: (1) Take all the reads from both functional and pseudogene, (2) Phase each read independently, (3) Rank each read by haplotype, (4) Remake BAM and VCF. The software outputs (1) correctly aligned BAM file with only reads belonging to the functional gene and (2) vcf file made by HaplotypeCaller(gatk). These files can be merged into your existing BAM and VCF for further analysis. Currently, the program's default is set for SBDS and SBDSP1 region, user can change these settings.
 
 ## 2. Installation
-Just download the latest release from the GitHub repository and uncompress the tarball in a suitable directory. The tarball includes the PseudoRA script as well as the third-party software redistributed with PseudoRA (see section 5). The INSTALL files contain detailed installation instructions, including all the external libraries required to make PseudoRA run in Ubuntu.
+Just download the latest release from the GitHub repository and uncompress the tarball in a suitable directory. The tarball includes the PseudoRA script as well as the third-party software redistributed with PseudoRA (see section 6). The INSTALL files contain detailed installation instructions, including all the external libraries required to make PseudoRA run in Ubuntu.
 
     bash </path/to/PseudoRA/>INSTALL.sh
     
@@ -27,6 +27,8 @@ After PseudoRA  on exon 2 of *SBDS* gene
 
 ## 4. Running scripts
 
+PseudoRA uses hg19/GrCH37 as reference genome. If hg38 is used, user will need to make a custom library before running PseudoRA (see section 5). 
+
 The command for running PseudoRA has the following syntax:
 
     bash </path/to/PseudoRA/>utils/pseudoRA.sh -i <input BAM>
@@ -42,6 +44,7 @@ The command for running PseudoRA has the following syntax:
  - HaplotypeCaller vcf file
 
 ## 5. Customization for other genes
+Currently, PseudoRA is fit to handle only variants in *SBDS* and *SBDSP1*, but user can customize the reference FASTA to fit their needs using the code below. First, BED file including the functional and pseudogenes are needed. Make sure that the functional gene is on the first line. Python code will mask all nucleotides except for the region corresponding to the functional gene. Bwa, samtools, picard is used to index the output FASTA.
 
     python3 </path/to/PseudoRA/>utils/customization.py -r <reference FASTA> -b <region-of-interest BED> -o <output FASTA>
     bwa index <output FASTA>
