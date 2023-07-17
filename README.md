@@ -45,6 +45,9 @@ PseudoRA is distributed under a GPL-3 license. Additionally, SqueezeMeta redistr
 ## 7. Reference
 
 Acknowledgements
+
 Author of pipeline: Yu Jin Park (parkyj217@gmail.com)
+
 Principal Investigators: Saeam Shin and Seung-Tae Lee
+
 Institution: Yonsei University, College of Medicine, Department of Laboratory Medicine
