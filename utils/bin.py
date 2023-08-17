@@ -103,29 +103,63 @@ def combine_two_seqs(seq1, seq2):
       seq3+=seq1[i]
   return seq3
 
+
 phases=[]
 for exon in exons:
   phase={exon.iloc[0]['concat']:[exon.index[0]]}
   for i in range(1, len(exon)):
-    found=False
+    found=[]
+    cand=[]
+    seq2=exon.iloc[i]['concat']
     for j in list(phase.keys()):
       seq1=j
-      seq2=exon.iloc[i]['concat']
-      alignments = pairwise2.align.globalcs(seq1, seq2,matrix_get,-1,-1)
-      compare1 = pairwise2.align.globalcs(seq1, seq2,matrix_get2,-1,-1)
-      if alignments[0].score == compare1[0].score:
-        combined = combine_two_seqs(seq1, seq2)
-        if combined != seq1:
-          tmp = phase.pop(seq1)
-          phase[combined]=tmp+[exon.index[i]]
-        else:
-          phase[combined]+=[exon.index[i]]
-        found = True
-        break
-    if not found:
-      phase[exon.iloc[i]['concat']]=[exon.index[i]]
+      alignments = pairwise2.align.globalcs(seq1, seq2,matrix_get,-10,-10) #check if bps are same
+      compare1 = pairwise2.align.globalcs(seq1, seq2,matrix_get2,-10,-10) #check how many bps to compare
+      if compare1[0].score == 0: #if no bp to compare
+        continue
+      if alignments[0].score == compare1[0].score: #if exact match, add to found
+        found.append(seq1)
+      elif alignments[0].score > -1*(compare1[0].score): # if partial match, add to cand
+        cand.append(seq1)
+    #
+    if len(found) == 0 and len(cand) == 0: # if not found, add new phase
+      phase[seq2]=[exon.index[i]]
+    elif len(found) == 0 and len(cand) == 1: # if only 1 cand found, combine line
+       ind_blank=0
+       for char1 in range(0,len(seq2)):
+         if seq2[char1]!="-":
+           ind_blank=char1
+           break
+       combined=cand[0][:char1]+seq2[char1:]
+       phase[combined]=[exon.index[i]]
+    elif len(found) == 0 and len(cand) > 1: # if more than 1 cand found, find candidate with maximum match, then combine line
+      cand1=dict()
+      for cand_curr in cand: 
+       for char1 in range(0,len(seq2)):
+         if seq2[char1]=="-":
+           continue
+         elif seq2[char1]!=cand_curr[char1]:
+           cand1[cand_curr]=char1
+           break
+       max_seq = max(cand1, key=cand1.get)
+       max_index = cand1[max_seq]
+       combined=max_seq[:max_index]+seq2[max_index:]
+       phase[combined]=[exon.index[i]]       
+    else: #if found is more than 1, randomly put in one of the founds
+      seq1 = random.choice(found)
+      combined = combine_two_seqs(seq1, seq2)
+      if combined != seq1:
+        res = dict()
+        for key in phase:
+          if key == seq1:
+            res[combined] = phase[key]+[exon.index[i]]
+          else:
+            res[key] = phase[key]
+        phase=res.copy()
+      else:
+        phase[combined]+=[exon.index[i]]
   phases.append(phase)
-  
+
 ##################################
 
 print("Writing corrected BAM file")
