@@ -106,6 +106,7 @@ def combine_two_seqs(seq1, seq2):
 
 phases=[]
 for exon in exons:
+ if not exon.empty:
   phase={exon.iloc[0]['concat']:[exon.index[0]]}
   for i in range(1, len(exon)):
     found=[]
