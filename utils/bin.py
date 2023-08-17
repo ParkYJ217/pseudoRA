@@ -77,7 +77,7 @@ for i in range(2,len(table.columns)-1):
     exons.append(table.iloc[before:p2])
     before=p2
 
-exons.append(table.iloc[before:p2])
+exons.append(table.iloc[before:len(table)])
 
 #################################
 def matrix_get(nuc1,nuc2):
