@@ -5,7 +5,7 @@ import sys
 import pandas as pd
 import numpy as np
 from Bio import pairwise2
-import warnings
+import warnings, random
 
 options=sys.argv
 print("=================================================")
@@ -167,28 +167,37 @@ warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 df_interprets=[]
 final_list=[]
 for index in range(0, len(phases)):
-   df_interpret=pd.DataFrame(index=phases[index].keys(), columns=['read_names','ref_score','alt_score','reads','checked'])
+   df_interpret=pd.DataFrame(index=phases[index].keys(), columns=['read_names','ref_score','alt_score','score','reads','checked'])
    for phase in phases[index].keys():
-     df_interpret.loc[phase] = [phases[index][phase], pairwise2.align.globalcs(ref_phase, phase,matrix_get,-1,-1)[0].score, pairwise2.align.globalcs(alt_phase, phase,matrix_get,-1,-1)[0].score, len(phases[index][phase]),'']#score, depth
-     df_interpret = df_interpret.sort_values(by=['ref_score', 'alt_score'], ascending=[False,True])
+     ref_score=float(pairwise2.align.globalcs(ref_phase, phase,matrix_get,-1,-1)[0].score)
+     alt_score=float(pairwise2.align.globalcs(alt_phase, phase,matrix_get,-1,-1)[0].score)
+     df_interpret.loc[phase] = [phases[index][phase], ref_score, alt_score, ref_score-alt_score, len(phases[index][phase]),'']#score, depth
+     #df_interpret = df_interpret.sort_values(by=['ref_score', 'alt_score'], ascending=[False,True])
+     df_interpret = df_interpret.sort_values(by=['score'], ascending=[False])
    sum_total = df_interpret.reads.sum()
    sum_total_by_genes = sum_total/len(bed)
+#   sum_now = int(df_interpret.iloc[0]['reads'])
+#   final_list += df_interpret.iloc[0]['read_names']
+#   df_interpret.iloc[0]['checked']="O"
    sum_now=0
    for i in range(0, len(df_interpret)):
      if i==0:
-       final_list += df_interpret.loc[df_interpret.index[i],'read_names']
-       df_interpret.loc[df_interpret.index[i],'checked']="O"
+       final_list += df_interpret.iloc[i]['read_names']
+       df_interpret.iloc[i]['checked']="O"
        continue
-     sum_now += int(df_interpret.loc[df_interpret.index[i-1],'reads'])
-     sum_later = sum_now + int(df_interpret.loc[df_interpret.index[i],'reads'])
+     sum_now += int(df_interpret.iloc[i-1]['reads'])
+     sum_later = sum_now + int(df_interpret.iloc[i]['reads'])
      if (sum_now-sum_total_by_genes)<0 and (sum_later-sum_total_by_genes)<0:
-       final_list += df_interpret.loc[df_interpret.index[i],'read_names']
-       df_interpret.loc[df_interpret.index[i],'checked']="O"
+       final_list += df_interpret.iloc[i]['read_names']
+       df_interpret.iloc[i]['checked']="O"
      elif (sum_now-sum_total_by_genes)<=0 and (sum_later-sum_total_by_genes)>0 and abs(sum_now-sum_total_by_genes)>abs(sum_later-sum_total_by_genes):
-       final_list += df_interpret.loc[df_interpret.index[i],'read_names']
-       df_interpret.loc[df_interpret.index[i],'checked']="O"
+       final_list += df_interpret.iloc[i]['read_names']
+       df_interpret.iloc[i]['checked']="O"
      else: #BOTH positives
        break
+#   df_real_gene = df_interpret.loc[df_interpret['ref_score']>=0]
+#   for i in df_real_gene.index:
+#     final_list += df_real_gene.loc[i,'read_names']
    df_interprets.append(df_interpret)
 
 for i in range(0,len(df_interprets)):
