@@ -1,5 +1,10 @@
 #!/bin/python3
 
+# PseudoRA: Core Python Script for Pseudogene ReAlignment
+# This script processes NGS alignment data (BAM), variant calls (VCF),
+# and performs sophisticated haplotype phasing to reassign reads to their
+# true genomic origin (e.g., SBDS vs. SBDSP1), correcting pseudoalignment issues.
+
 import pysam
 import sys
 import pandas as pd
@@ -7,6 +12,8 @@ import numpy as np
 from Bio import pairwise2
 import warnings, random
 
+# --- 1. Initialization and Input Processing ---
+# Retrieves command-line arguments: [VCF/caller_file] [input_bam_file] [output_prefix] [bed_file]
 options=sys.argv
 print("=================================================")
 print("Phasing all reads")
@@ -17,20 +24,34 @@ for line in f.readlines():
     break
   counter+=1
 f.close()
+# Loads the VCF data (from the first GATK HaplotypeCaller run) into a pandas DataFrame.
+# Filters for single nucleotide variants (SNV) with sufficient depth (>=20) as phasing markers.
 caller=pd.read_table(options[1], skiprows=counter-1)
-samfile = pysam.AlignmentFile(options[2], "rb" )
-output = options[3]
-bed = pd.read_table(options[4],header=None)
-
 caller[['GT','AD','DP','GQ','PL']] = caller.iloc[:,-1].str.split(":", expand=True)
 caller = caller.loc[(caller.REF.str.len()==1)&(caller.ALT.str.len()==1)&(caller.DP.astype(int)>=20)]
 caller = caller.reset_index(drop=True)
 
+# Opens the input BAM file (the unified SBDS/SBDSP1 alignment from BWA).
+samfile = pysam.AlignmentFile(options[2], "rb" )
+output = options[3]
+bed = pd.read_table(options[4],header=None)
+
+# Concatenates reference and alternate alleles to create full reference and alternate haplotypes.
+# These will be used for scoring during read assignment.
 ref_phase = ''.join(caller["REF"])
 alt_phase = ''.join(caller["ALT"])
 
+# --- 2. Read Information Extraction and Table Construction ---
+# This section directly processes the input BAM file to build a detailed table of read sequences.
+# It iterates through genomic positions, extracts nucleotide bases from aligned reads,
+# and organizes them into a pandas DataFrame (table).
+# This 'table' represents the input for the phasing logic, mapping reads to their observed SNP sequences.
+print("=================================================")
+print("Phasing all reads")
 list_site=[]
 tables = dict()
+
+# Iterates through pileup columns for specified genomic region to collect base calls.
 caller_index=0
 for pileupcolumn in samfile.pileup(str(caller.iloc[0]['#CHROM']), int(caller.iloc[0]['POS'])-10, int(caller.iloc[-1]['POS'])+10, max_depth=100000000, truncate=True, min_base_quality=0, ignore_orphans=False):
   if pileupcolumn.pos+1 == int(caller.loc[caller_index,'POS']):
@@ -41,45 +62,26 @@ for pileupcolumn in samfile.pileup(str(caller.iloc[0]['#CHROM']), int(caller.ilo
           tables[pileupread.alignment.query_name].append(pileupread.alignment.query_sequence[pileupread.query_position])
       else:
         tables[pileupread.alignment.query_name]=["-"]*len(list_site)
+    # Records the current variant site.
     list_site.append(str(pileupcolumn.pos+1)+caller.loc[caller_index,'REF']+caller.loc[caller_index,'ALT'])
+    # Fills in gaps for reads that don't cover the current site.
     for read_name in tables.keys():
       if len(tables[read_name]) != len(list_site):
         tables[read_name].append("-")
     caller_index+=1
     if(caller_index>=len(caller)): break
 
+# Converts the collected read data into a pandas DataFrame (the 'table' for phasing).
 table = pd.DataFrame.from_dict(tables, orient='index', columns=list_site)
 table = table.sort_values(list(table.columns), ascending=False)
+# Concatenates all SNP bases for each read into a single string, representing the read's observed haplotype sequence.
 table['concat']=table[table.columns].apply(lambda row: ''.join(row.values.astype(str)), axis=1)
-#print(table)
+# Saves the constructed table to a TSV file for potential debugging or further analysis.
 table.to_csv(output+".tsv",sep='\t')
 
-##################################
-def matrix_get2(nuc1,nuc2):
-   if nuc1=="-" and nuc2=="-":
-     return 0
-   elif nuc1=="-" and nuc2!="-":
-     return 0
-   elif nuc1!="-" and nuc2=="-":
-     return 0
-   elif nuc1==nuc2:
-     return 1
-   else:
-     return 1
-
-table2 = table.reset_index()
-exons = []
-before = 0
-for i in range(2,len(table.columns)-1):
-  p1 = table2.loc[table2.iloc[:,i-1]!="-"].index[-1]
-  p2 = table2.loc[table2.iloc[:,i]!="-"].index[0] 
-  if p2 > p1:
-    exons.append(table.iloc[before:p2])
-    before=p2
-
-exons.append(table.iloc[before:len(table)])
-
-#################################
+# --- 3. Sequence Alignment Scoring Functions ---
+# These functions define custom scoring matrices for Biopython's pairwise alignment.
+# Scores matches/mismatches with gaps receiving zero. Used for general sequence similarity.
 def matrix_get(nuc1,nuc2):
    if nuc1=="-" or nuc2=="-":
      return 0
@@ -88,12 +90,14 @@ def matrix_get(nuc1,nuc2):
    else:
      return -1
 
+# Scores only non-gap matches. Used to count comparable bases for normalization.
 def matrix_get2(nuc1,nuc2):
    if nuc1=="-" or nuc2=="-":
      return 0
    else:
      return 1
-
+# Combines two sequences, prioritizing non-gap bases from seq1, or taking from seq2 if seq1 has a gap.
+# Used to build consensus sequences during haplotype extension.
 def combine_two_seqs(seq1, seq2):
   seq3=''
   for i in range(0,len(seq1)):
@@ -103,7 +107,24 @@ def combine_two_seqs(seq1, seq2):
       seq3+=seq1[i]
   return seq3
 
+# --- 4. Exon Segmentation and Haplotype Phasing Logic ---
+# Divides the main table into 'exons' based on non-gap patterns.
+# Phasing is then performed independently within each exon to build haplotype groups.
+# This handles potential structural variations or discontinuities between regions.
+table2 = table.reset_index()
+exons = []
+before = 0
+for i in range(2,len(table.columns)-1):
+  p1 = table2.loc[table2.iloc[:,i-1]!="-"].index[-1]
+  p2 = table2.loc[table2.iloc[:,i]!="-"].index[0] 
+  if p2 > p1:
+    exons.append(table.iloc[before:p2])
+    before=p2
+exons.append(table.iloc[before:len(table)])
 
+# --- 5. Haplotype Inference and Read Assignment ---
+# This is the core logic for probabilistic haplotype phasing using pairwise alignment.
+# It assigns reads to existing haplotypes or creates new ones based on sequence similarity.
 phases=[]
 for exon in exons:
  if not exon.empty:
@@ -161,8 +182,9 @@ for exon in exons:
         phase[combined]+=[exon.index[i]]
   phases.append(phase)
 
-##################################
-
+# --- 6. Read Selection for Final Output BAM ---
+# Based on the derived haplotypes, reads are selected for the final corrected BAM file.
+# This selection prioritizes reads aligning best to the reference/alternate phases and total read coverage.
 print("Writing corrected BAM file")
 warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning) 
 df_interprets=[]
@@ -201,6 +223,8 @@ for index in range(0, len(phases)):
 #     final_list += df_real_gene.loc[i,'read_names']
    df_interprets.append(df_interpret)
 
+# --- 7. Output Result Files and Corrected BAM ---
+# Writes interpretation results to TSV files and generates the final corrected BAM file.
 for i in range(0,len(df_interprets)):
   if i==0:
     df_interprets[i].to_csv(output+".result.tsv", sep='\t')
