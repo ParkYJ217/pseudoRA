@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# PseudoRA: A tool for realigning reads in gene-pseudogene pairs to improve variant calling accuracy.
+# Version: 1.0
+
 # --- Configuration and Argument Parsing ---
 # Set script-related paths
 script=$(realpath "${BASH_SOURCE:-$0}")
@@ -80,16 +83,15 @@ samtools view -b -L ${roi} ${ID}.bam > ${ID}_filtered.bam
 # proper pairing for downstream BWA processing by sorting based on read names.
 echo "Step 2: Converting BAM to FASTQ and sorting..."
 # Convert BAM to FASTQ
-samtools fastq ${ID}_filtered.bam -1 ${ID}.R1.pre.fastq.gz -2 ${ID}.R2.pre.fastq.gz
-zcat ${ID}.R1.pre.fastq.gz | paste - - - - | LC_ALL=C sort -k1,1 -S 3G | tr '\t' '\n' | gzip > ${ID}.R1.fastq.gz
-zcat ${ID}.R2.pre.fastq.gz | paste - - - - | LC_ALL=C sort -k1,1 -S 3G | tr '\t' '\n' | gzip > ${ID}.R2.fastq.gz
+samtools fastq ${ID}_filtered.bam -1 ${ID}.R1.pre.fastq.gz -2 ${ID}.R2.pre.fastq.gz 
+zcat "${ID}.R1.pre.fastq.gz" "${ID}.R2.pre.fastq.gz" | paste - - - - | LC_ALL=C sort -k1,1 -S 3G | tr '\t' '\n' | gzip > "${ID}.mixed.fastq.gz"
 
 # 3. Align to Combined Reference (SBDS).
 # All filtered reads (from both SBDS and SBDSP1) are re-aligned to the primary SBDS reference.
 # This all-inclusive alignment is critical for initial VAF estimation and haplotype inference,
 # by pooling all homologous reads into one context.
 echo "Step 3: Re-aligning all reads to SBDS reference using BWA-MEM..."
-bwa mem ${RefFasta} ${ID}.R1.fastq.gz ${ID}.R2.fastq.gz > ${ID}.sam
+bwa mem -p "${RefFasta}" "${ID}.mixed.fastq.gz" > "${ID}.sam"
 samtools view -bhS ${ID}.sam > ${ID}.pre.bam
 samtools sort ${ID}.pre.bam > ${ID}.rg.bam
 java -XX:-DoEscapeAnalysis -jar ${scriptDIR}/jar/AddOrReplaceReadGroups.jar VALIDATION_STRINGENCY=SILENT I=${ID}.rg.bam O=${ID}.out.bam SO=coordinate RGID=${ID} RGLB=${ID} RGPL=Illumina,paired-end RGPU=${ID} RGSM=${ID} CREATE_INDEX=true;
@@ -112,12 +114,13 @@ samtools index ${ID}.correct.bam
 # Perform the final, refined variant calling on the PseudoRA-processed BAM.
 # This VCF contains accurate variant calls with corrected VAFs for the SBDS gene,
 # as pseudoalignment issues have been resolved.
-echo "Step 6: Performing final variant calling on corrected BAM...
+echo "Step 6: Performing final variant calling on corrected BAM..."
 java -XX:-DoEscapeAnalysis -jar ${scriptDIR}/jar/GenomeAnalysisTK.jar -T HaplotypeCaller -R ${RefFasta} -I ${ID}.correct.bam -L ${roi} -o ${ID}.correct.hc.vcf -stand_call_conf 20;
 
 # 7. Remove all temporary and intermediate files to keep the directory clean.
 echo "Step 7: Cleaning up temporary files..."
+
 rm ${ID}_filtered.bam
-rm ${ID}.R1.pre.fastq.gz ${ID}.R2.pre.fastq.gz
+rm ${ID}.R1.pre.fastq.gz ${ID}.R2.pre.fastq.gz ${ID}.mixed.fastq.gz
 rm ${ID}.pre.bam ${ID}.sam ${ID}.rg.bam
-rm ${ID}.R1.fastq.gz ${ID}.R2.fastq.gz ${ID}.hc.vcf* ${ID}.out.ba*
+rm ${ID}.hc.vcf* ${ID}.out.ba*
