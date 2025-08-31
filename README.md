@@ -47,8 +47,6 @@ The command for running PseudoRA has the following syntax:
 Currently, PseudoRA is fit to handle only variants in *SBDS* and *SBDSP1*, but user can customize the reference FASTA to fit their needs using the code below. First, BED file including the functional and pseudogenes are needed. Make sure that the functional gene is on the first line. Python code will mask all nucleotides except for the region corresponding to the functional gene. Bwa, samtools, picard is used to index the output FASTA.
 
     python3 </path/to/PseudoRA/>utils/customization.py -r <reference FASTA> -b <region-of-interest BED> -o <output FASTA>
-    bwa index <output FASTA>
-    samtools faidx <output FASTA>
     java -jar </path/to/PseudoRA/>jar/picard.jar CreateSequenceDictionary R=<output FASTA> O=<output DICT>
 
 ## 6. License and third-party software
